@@ -1,0 +1,123 @@
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//                                                                                                                    //
+//                                                      VERSIONS                                                      //
+//                                                                                                                    //
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+buildscript {
+    ext {
+        beamVersion = '2.60.0'
+        lombokVersion = '1.18.34'
+        mongoVersion = '5.2.1'
+        cloudSecretManagerVersion = '2.53.0'
+    }
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//                                                                                                                    //
+//                                                      PLUGINS                                                       //
+//                                                                                                                    //
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+plugins {
+    id 'java'
+    id 'application'
+    id 'idea'
+    id("com.gradleup.shadow") version "8.3.5"
+}
+
+group = 'com.groupbyinc.datahub-consumer'
+mainClassName = 'com.groupbyinc.datahub.consumer.DatahubConsumerApplication'
+
+// These properties are either globally defined (in developer machines) or explicitly passed (in CI jobs).
+def mavenUsername = project.ext.properties.mavenUsername
+def mavenPassword = project.ext.properties.mavenPassword
+
+repositories {
+    mavenLocal()
+    mavenCentral()
+    maven { url 'https://plugins.gradle.org/m2/' }
+    maven {
+        url 'https://maven.pkg.github.com/groupby/maven-releases/'
+
+        credentials {
+            username = mavenUsername
+            password = mavenPassword
+        }
+    }
+}
+
+dependencies {
+
+    compileOnly(
+            "org.projectlombok:lombok:$lombokVersion",
+            'org.slf4j:slf4j-api'
+    )
+
+    annotationProcessor(
+            "org.projectlombok:lombok:$lombokVersion"
+    )
+
+    implementation(
+            "org.apache.beam:beam-sdks-java-core:$beamVersion",
+            "org.apache.beam:beam-runners-google-cloud-dataflow-java:$beamVersion",
+            "org.apache.beam:beam-sdks-java-io-google-cloud-platform:$beamVersion",
+
+            "org.mongodb:mongodb-driver-reactivestreams:$mongoVersion",
+
+            'com.github.erosb:json-sKema:0.18.0',
+
+            "com.google.cloud:google-cloud-secretmanager:$cloudSecretManagerVersion",
+            'com.google.cloud:google-cloud-pubsub:1.119.0',
+            'com.google.auth:google-auth-library-oauth2-http:1.15.0',
+            'com.google.cloud:google-cloud-core:2.9.0',
+            'com.google.api:gax-grpc:2.57.0'
+    )
+
+    runtimeOnly(
+            "org.apache.beam:beam-runners-direct-java:$beamVersion",
+    )
+
+    testImplementation(
+            "org.apache.beam:beam-runners-direct-java:$beamVersion"
+    )
+
+
+}
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(21)
+    }
+}
+
+tasks.named('shadowJar') {
+    archiveClassifier.set("")
+    mergeServiceFiles()
+    zip64 true
+    manifest {
+        attributes 'Main-Class': mainClassName
+    }
+}
+
+tasks.build {
+    dependsOn tasks.shadowJar
+}
+tasks.distZip {
+    enabled = false
+}
+tasks.distTar {
+    enabled = false
+}
+tasks.startScripts {
+    dependsOn tasks.shadowJar
+}
+tasks.jar {
+    enabled = false
+}
+
+application {
+    applicationDefaultJvmArgs = ['--enable-preview']
+    mainClass.set(mainClassName)
+}
+
+
